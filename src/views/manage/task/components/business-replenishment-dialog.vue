@@ -77,10 +77,6 @@
 
 <script setup name="Task">
 import { watch } from 'vue';
-import { require } from '@/utils/validate';
-import { ElMessageBox } from 'element-plus';
-import { cancelTaskType } from '@/api/manage/taskType';
-// 接口
 // 获取货道接口
 import { getGoodsList } from '@/api/manage/channel';
 // 从父组件获取数据

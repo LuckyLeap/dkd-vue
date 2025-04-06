@@ -208,7 +208,6 @@ import {
   getTask,
   delTask,
   addTask,
-  updateTask,
   getOperationList,
 } from '@/api/manage/task';
 import { listTaskType } from '@/api/manage/taskType';

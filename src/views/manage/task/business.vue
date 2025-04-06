@@ -215,9 +215,7 @@
 import {
   listTask,
   getTask,
-  delTask,
   addTask,
-  updateTask,
   getBusinessList,
   getTaskDetails,
 } from '@/api/manage/task';
@@ -244,7 +242,6 @@ const total = ref(0);
 const title = ref('');
 const detailVisible = ref(false); //查看详情弹层显示/隐藏
 const taskId = ref(null); //工单id
-const taskDada = ref({}); //工单详情
 const userList = ref([]); //运维人员
 const channelVisible = ref(false); //补货弹层
 const detailData = ref([]); //货道列表
@@ -273,7 +270,7 @@ const data = reactive({
     productTypeId: [
       { required: true, message: '设备类型不能为空', trigger: 'blur' },
     ],
-    // details: [{ required: true, message: '补货数量不能为空', trigger: 'blur' }],
+    details: [{ required: true, message: '补货数量不能为空', trigger: 'blur' }],
 
     userId: [{ required: true, message: '人员不能为空', trigger: 'blur' }],
     desc: [{ required: true, message: '备注不能为空', trigger: 'blur' }],
@@ -371,32 +368,6 @@ function submitForm() {
       });
     }
   });
-}
-
-/** 删除按钮操作 */
-function handleDelete(row) {
-  const _taskIds = row.taskId || ids.value;
-  proxy.$modal
-    .confirm('是否确认删除运营工单编号为"' + _taskIds + '"的数据项？')
-    .then(function () {
-      return delTask(_taskIds);
-    })
-    .then(() => {
-      getList();
-      proxy.$modal.msgSuccess('删除成功');
-    })
-    .catch(() => {});
-}
-
-/** 导出按钮操作 */
-function handleExport() {
-  proxy.download(
-    'manage/task/export',
-    {
-      ...queryParams.value,
-    },
-    `task_${new Date().getTime()}.xlsx`
-  );
 }
 
 // 查询工单类型列表

@@ -71,7 +71,7 @@
             :label="taskDada.taskStatus === 3 ? '取消原因：' : '备注：'"
           >
             <div class="desc">
-              {{ taskDada.desc }}
+              {{ taskDada.desc ? taskDada.desc : '无' }}
             </div>
           </el-form-item>
         </el-col>

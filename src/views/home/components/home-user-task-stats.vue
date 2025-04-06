@@ -51,6 +51,7 @@ import dayjs from 'dayjs';
 const repair = ref(false);
 const orderCountNum = ref(0);
 const orderAmountNum = ref(0);
+//获取 当前日期所在月份的第一天 和 所在天的最后一时刻
 const start = dayjs().startOf('month').format('YYYY.MM.DD');
 const end = dayjs().endOf('day').format('YYYY.MM.DD');
 const userTaskStats = ref([
@@ -73,13 +74,6 @@ const userTaskStats = ref([
     date: null,
   },
 ]);
-// 定义方法
-const orderCount = () => {
-  const month = {
-    start: dayjs().startOf('month').format('YYYY-MM-DD HH:mm:ss'),
-    end: dayjs().endOf('day').format('YYYY-MM-DD HH:mm:ss'),
-  };
-};
 </script>
 <style lang="scss" scoped>
 // TODO: 首页、人效统计、对账统计样式抽出组件
@@ -157,7 +151,6 @@ const orderCount = () => {
   background-image: url('@/assets/images/circle.png'), url('@/assets/images/task.png');
   background-repeat: no-repeat, no-repeat;
   background-position: 0 0, calc(100% - 12px) 100%;
-
 }
 
 .bgc2 {
