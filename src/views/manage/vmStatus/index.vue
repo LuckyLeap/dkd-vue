@@ -15,24 +15,21 @@
       </el-form-item>
     </el-form>
 
-    <!-- 列表展示 -->
     <el-table v-loading="loading" :data="vmList" @selection-change="handleSelectionChange">
       <el-table-column label="序号" type="index" width="55" align="center" />
       <el-table-column label="设备编号" align="center" prop="innerCode" />
       <el-table-column label="设备型号" align="center" prop="vmTypeId">
         <template #default="scope">
-          <div v-for="item in vmTypeList" :key="item.id">
-            <span v-if="item.id === scope.row.vmTypeId">{{ item.name }}</span>
-          </div>
+          <span>{{ getVmTypeName(scope.row.vmTypeId) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="详细地址" align="left" prop="addr" show-overflow-tooltip="true" />
+      <el-table-column label="详细地址" align="left" prop="addr" show-overflow-tooltip />
       <el-table-column label="运营状态" align="center" prop="vmStatus">
         <template #default="scope">
           <dict-tag :options="vm_status" :value="scope.row.vmStatus" />
         </template>
       </el-table-column>
-      <el-table-column label="设备状态" align="center" prop="vmStatus">
+      <el-table-column label="设备状态" align="center" prop="runningStatus">
         <template #default="scope">
           {{ scope.row.runningStatus ? (JSON.parse(scope.row.runningStatus).status ? '正常' : '异常') : '异常' }}
         </template>
@@ -52,9 +49,57 @@
       @pagination="getList"
     />
 
-    <!-- 添加或修改设备管理对话框 -->
-    <el-dialog :title="title" v-model="open" width="500px" append-to-body>
-      <!-- 对话框内容 -->
+    <el-dialog :title="title" v-model="open" width="800px" append-to-body>
+      <el-descriptions title="设备状态" :column="2" border>
+        <el-descriptions-item label="运营状态">
+          <dict-tag :options="vm_status" :value="form.vmStatus" />
+        </el-descriptions-item>
+        <el-descriptions-item label="设备状态">
+          {{ form.runningStatus ? (JSON.parse(form.runningStatus).status ? '正常' : '异常') : '异常' }}
+        </el-descriptions-item>
+      </el-descriptions>
+
+      <el-divider />
+
+      <el-descriptions title="运营信息" :column="2" border>
+        <el-descriptions-item label="销售量">{{ form.salesCount || 100 }}</el-descriptions-item>
+        <el-descriptions-item label="销售额">{{ form.amount || 500 }}</el-descriptions-item>
+        <el-descriptions-item label="补货次数">{{ form.supplyCount || 10 }}</el-descriptions-item>
+        <el-descriptions-item label="维修次数">{{ form.repairCount || 3 }}</el-descriptions-item>
+      </el-descriptions>
+
+      <el-divider />
+
+      <div class="sales-header">
+        <span class="title">商品销量（月）</span>
+        <el-button 
+          type="primary" 
+          @click="goToChannelManagement(form.innerCode)"
+          v-hasPermi="['manage:channel:edit']"
+        >
+          查看货道
+        </el-button>
+      </div>
+
+      <el-table :data="salesData" v-loading="salesLoading">
+        <el-table-column prop="name" label="商品名称" align="center" />
+        <el-table-column prop="sales" label="销量" align="center">
+          <template #default="{ row }">
+            <span :class="{ 'low-sales': isLowSales(row.sales, row.skuId) }">
+              {{ row.sales }}
+            </span>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-dialog>
+
+    <!-- 新增调整货道对话框 -->
+    <el-dialog title="查看货道" v-model="adjustChannelOpen" width="600px" append-to-body>
+      <el-table :data="channelData" v-loading="channelLoading">
+        <el-table-column prop="channelCode" label="货道编号" align="center" />
+        <el-table-column prop="sku.skuName" label="商品" align="center" />
+        <el-table-column prop="currentCapacity" label="当前容量" align="center" />
+      </el-table>
     </el-dialog>
   </div>
 </template>
@@ -62,19 +107,25 @@
 <script setup name="Vm">
 import { listVm, getVm } from "@/api/manage/vm";
 import { listVmType } from "@/api/manage/vmType";
-import { loadAllParams } from "@/api/page";
+import { listByInnerCode } from "@/api/manage/channel";
 import { ref, reactive, toRefs, getCurrentInstance } from "vue";
 
 const { proxy } = getCurrentInstance();
 const { vm_status } = proxy.useDict('vm_status');
 
+// 响应式数据
 const vmList = ref([]);
 const open = ref(false);
 const loading = ref(true);
 const showSearch = ref(true);
-const ids = ref([]);
 const total = ref(0);
 const title = ref("");
+const salesData = ref([]);
+const lowSalesSkus = ref(new Set());
+const salesLoading = ref(false);
+const adjustChannelOpen = ref(false);
+const channelData = ref([]);
+const channelLoading = ref(false);
 
 const data = reactive({
   form: {},
@@ -82,25 +133,10 @@ const data = reactive({
     pageNum: 1,
     pageSize: 10,
     innerCode: null,
-    nodeId: null,
-    regionId: null,
-    partnerId: null,
-    vmTypeId: null,
-    vmStatus: null,
-    runningStatus: null,
-    policyId: null,
   },
-  rules: {
-    nodeId: [
-      { required: true, message: "点位Id不能为空", trigger: "blur" }
-    ],
-    vmTypeId: [
-      { required: true, message: "设备型号不能为空", trigger: "blur" }
-    ],
-  }
 });
 
-const { queryParams, form, rules } = toRefs(data);
+const { queryParams, form } = toRefs(data);
 
 /** 查询设备管理列表 */
 function getList() {
@@ -110,24 +146,6 @@ function getList() {
     total.value = response.total;
     loading.value = false;
   });
-}
-
-// 表单重置
-function reset() {
-  form.value = {
-    id: null,
-    innerCode: null,
-    nodeId: null,
-    addr: null,
-    businessType: null,
-    regionId: null,
-    partnerId: null,
-    vmTypeId: null,
-    vmStatus: null,
-    runningStatus: null,
-    policyId: null,
-  };
-  proxy.resetForm("vmRef");
 }
 
 /** 搜索按钮操作 */
@@ -142,30 +160,97 @@ function resetQuery() {
   handleQuery();
 }
 
-// 多选框选中数据
-function handleSelectionChange(selection) {
-  ids.value = selection.map(item => item.id);
-}
-
 /** 查看详情按钮操作 */
 function getVmInfo(row) {
-  reset();
   const _id = row.id;
   getVm(_id).then(response => {
     form.value = response.data;
     open.value = true;
     title.value = "设备详情";
+
+    // 获取货道销售数据
+    salesLoading.value = true;
+    listByInnerCode(form.value.innerCode)
+      .then(res => {
+        processSalesData(res.data);
+      })
+      .finally(() => {
+        salesLoading.value = false;
+      });
   });
 }
 
-/* 查询设备类型列表 */
+/** 查询设备类型列表 */
 const vmTypeList = ref([]);
 function getVmTypeList() {
-  listVmType(loadAllParams).then(response => {
+  listVmType({}).then(response => {
     vmTypeList.value = response.rows;
   });
 }
 getVmTypeList();
 
+// 获取设备型号名称
+function getVmTypeName(vmTypeId) {
+  const item = vmTypeList.value.find(item => item.id === vmTypeId);
+  return item ? item.name : '';
+}
+
+// 处理销售数据
+function processSalesData(channels) {
+  const salesMap = new Map();
+
+  channels.forEach(channel => {
+    const skuId = channel.skuId;
+    if (!skuId) return;
+
+    const skuName = channel.sku?.skuName || `商品${skuId}`;
+    const sales = (salesMap.get(skuId)?.sales || 0) + (channel.sales || 0);
+
+    salesMap.set(skuId, { skuId, name: skuName, sales });
+  });
+
+  salesData.value = Array.from(salesMap.values()).sort((a, b) => b.sales - a.sales);
+
+  // 修改为取销量最低的2个商品
+  const sortedBySales = [...salesData.value].sort((a, b) => a.sales - b.sales);
+  const lowestTwo = sortedBySales.slice(0, 2);
+  lowSalesSkus.value = new Set(lowestTwo.map(item => item.skuId));
+}
+
+// 判断是否低销量
+function isLowSales(sales, skuId) {
+  return lowSalesSkus.value.has(skuId);
+}
+
+// 跳转货道管理
+function goToChannelManagement(innerCode) {
+  channelLoading.value = true;
+  listByInnerCode(innerCode)
+    .then(res => {
+      channelData.value = res.data;
+      adjustChannelOpen.value = true;
+    })
+    .finally(() => channelLoading.value = false);
+}
+
 getList();
 </script>
+
+<style scoped>
+.sales-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.title {
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.low-sales {
+  color: #ff4d4f;
+  font-weight: 500;
+}
+</style>

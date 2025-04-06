@@ -22,3 +22,11 @@ export function channelConfig(data) {
     data: data,
   });
 }
+
+// 根据设备编号查询货道列表（含商品名称）
+export function listByInnerCode(innerCode) {
+  return request({
+    url: `/manage/channel/list/${innerCode}`,
+    method: 'get'
+  })
+}
