@@ -6,7 +6,6 @@
           >{{ datePickerFormat[0] }} ~ {{ datePickerFormat[1] }}</span
         >
       </div>
-      <common-week-month-year @handleChange="handleRadioGroupSelChange" />
     </div>
     <div class="charts">
       <sku-sale-collect-line-chart
@@ -22,56 +21,97 @@
     </div>
   </div>
 </template>
+
 <script setup>
-import * as echarts from 'echarts';
-import { onMounted } from 'vue';
+import { ref, onMounted, onBeforeUnmount } from 'vue';
 import dayjs from 'dayjs';
-import CommonWeekMonthYear from '@/components/week-month-year/index.vue';
 import SkuSaleCollectLineChart from './sku-sale-collect-line-chart.vue';
 import SkuSaleCollectBarChart from './sku-sale-collect-bar-chart.vue';
-// 定义变量
-const datePickerSel = ref([]);
+import { getOrdersStatistics, getRegionReportOrders } from '@/api/manage/report';
+
 const datePickerFormat = ref([]);
 const radioGroupSel = ref('week');
-const userTaskStatus = ref([]);
+
 const lineChartOption = ref({
-  xAxisData: [
-      "2024-05-13",
-      "2024-05-14",
-      "2024-05-15",
-      "2024-05-16"
-  ],
-  seriesData: [5,10,12,15],
+  xAxisData: [],
+  seriesData: [],
   yAxisName: '单位：元',
 });
-const collectType = ref(1); // 统计时间类型，1:按日统计，2:按月统计
+
 const barChartOption = ref({
-  xAxisData: ["北京平西府街道", "霍营街道"],
-  seriesData: [866,523],
+  xAxisData: [],
+  seriesData: [],
   yAxisName: '单位：元',
 });
-onMounted(()=>{
-    handleRadioGroupSelChange(radioGroupSel.value)
-})
-//
-const handleRadioGroupSelChange = (radioGroup) => {
-  radioGroupSel.value = radioGroup;
-  const startFormat = dayjs()
-      .startOf(radioGroupSel.value)
-      .format('YYYY.MM.DD')
-    const endFormat = dayjs()
-      .endOf('day')
-      .format('YYYY.MM.DD')
-    datePickerFormat.value = [startFormat, endFormat]
+
+let isDestroying = false;
+
+// 获取图表数据
+const fetchChartData = async (begin, end) => {
+  if (isDestroying) return;
+
+  try {
+    const [ordersResponse, regionResponse] = await Promise.allSettled([
+      getOrdersStatistics({ 
+        begin: dayjs(begin).format('YYYY-MM-DD'),
+        end: dayjs(end).format('YYYY-MM-DD')
+      }),
+      getRegionReportOrders({
+        begin: dayjs(begin).format('YYYY-MM-DD'),
+        end: dayjs(end).format('YYYY-MM-DD')
+      })
+    ]);
+
+    const ordersData = ordersResponse.status === 'fulfilled' ? ordersResponse.value.data : {};
+    const regionData = regionResponse.status === 'fulfilled' ? regionResponse.value.data : {};
+
+    lineChartOption.value = {
+      xAxisData: ordersData.dateList?.split?.(',') || [],
+      seriesData: (ordersData.orderMoneyList?.split?.(',') || []).map(v => Number(v) || 0),
+      yAxisName: '单位：元'
+    };
+
+    barChartOption.value = {
+      xAxisData: regionData.nameList?.split?.(',') || [],
+      seriesData: (regionData.moneyList?.split?.(',') || []).map(v => Number(v) || 0),
+      yAxisName: '单位：元'
+    };
+  } catch (error) {
+    console.error('数据获取失败:', error);
+  }
 };
+
+// 处理日期选择变化
+const handleRadioGroupSelChange = async (radioGroup) => {
+  if (isDestroying) return;
+
+  radioGroupSel.value = radioGroup;
+  const begin = dayjs().startOf(radioGroup);
+  const end = dayjs().endOf('day');
+  
+  datePickerFormat.value = [
+    begin.format('YYYY.MM.DD'),
+    end.format('YYYY.MM.DD')
+  ];
+
+  await fetchChartData(begin.toDate(), end.toDate());
+};
+
+onMounted(() => {
+  handleRadioGroupSelChange(radioGroupSel.value);
+});
+
+onBeforeUnmount(() => {
+  isDestroying = true;
+});
 </script>
+
 <style lang="scss" scoped>
 .sku-sale-collect {
   display: flex;
   flex-direction: column;
-  // TODO: 临时解决方案，当前页面的横纵布局需要重新思考
-  height: calc((100vh - 120px) * 0.4 - 20px);
-  min-height: 352px;
+  height: calc((100vh - 120px) * 0.45);
+  min-height: 400px;
   margin-top: 20px;
   background: #FFFFFF;
   border-radius: 20px;
@@ -79,6 +119,22 @@ const handleRadioGroupSelChange = (radioGroup) => {
   .charts {
     flex: 1;
     display: flex;
+    gap: 15px;
+    
+    > div {
+      flex: 1;
+      min-width: 0;
+    }
   }
+}
+
+.echarts-tooltip {
+  max-width: 300px !important;
+  white-space: pre-wrap !important;
+  word-break: break-all !important;
+}
+
+.echarts-axis-label {
+  line-height: 1.5;
 }
 </style>

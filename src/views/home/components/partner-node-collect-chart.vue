@@ -5,65 +5,99 @@
       <svg-icon name="more" class="more" @click="handleMoreClick" />
     </div>
     <el-row :gutter="20" type="flex" align="middle" class="body">
-      <el-col :span="17">
-        <partner-node-collect-pie-chart :chart-option="pieChartOption" />
-      </el-col>
-      <el-col :span="7">
-        <div class="collect">
-          <div class="count">
-            16
+      <!-- 加载状态 -->
+      <div v-if="loading" class="loading-container">数据加载中...</div>
+      
+      <!-- 数据展示 -->
+      <template v-else>
+        <el-col :span="17">
+          <partner-node-collect-pie-chart 
+            :chart-option="pieChartOption" 
+            :key="chartKey"
+          />
+        </el-col>
+        <el-col :span="7">
+          <div class="collect">
+            <div class="count">
+              {{ nodeSum }}
+            </div>
+            <div class="name">点位数</div>
+            <div class="count count2">
+              {{ partnerSum }}
+            </div>
+            <div class="name">合作商数</div>
           </div>
-          <div class="name">点位数</div>
-          <div class="count count2">
-            5
-          </div>
-          <div class="name">合作商数</div>
-        </div>
-      </el-col>
+        </el-col>
+      </template>
     </el-row>
   </div>
 </template>
 <script setup>
+import { ref, onMounted } from 'vue'
+import { getPartnerTop5 } from '@/api/manage/report'
 import PartnerNodeCollectPieChart from './partner-node-collect-pie-chart.vue'
-// 定义变量
-const pieChartOption = ref({
-  seriesData: [
-    {
-      name: '金燕龙合作商',
-      value: 10,
-    },
-    {
-      name: '天华物业',
-      value: 2,
-    },
-    {
-      name: '北京合作商',
-      value: 2,
-    },
-    {
-      name: 'likede',
-      value: 1,
-    },
-    {
-      name: '佳佳',
-      value: 1,
-    },
-  ],
-});
+
+// 响应式数据
+const pieChartOption = ref({ seriesData: [] })
+const partnerSum = ref(0)
+const nodeSum = ref(0)
+const loading = ref(true)
+const chartKey = ref(0) // 用于强制刷新图表组件
+
+// 获取数据
+const fetchData = async () => {
+  try {
+    loading.value = true
+    const { data } = await getPartnerTop5()
+
+    // 处理饼图数据
+    const names = data.nameList?.split(',') || []
+    const counts = data.countList?.split(',') || []
+    
+    pieChartOption.value.seriesData = names.map((name, index) => ({
+      name: name.trim(),
+      value: parseInt(counts[index] || 0)
+    })).slice(0, 5) // 确保最多5条数据
+
+    // 更新统计数字
+    partnerSum.value = data.partnerSum || 0
+    nodeSum.value = data.nodeSum || 0
+
+    // 强制刷新图表组件
+    chartKey.value++
+
+  } catch (error) {
+    console.error('获取合作商数据失败:', error)
+    pieChartOption.value.seriesData = []
+    partnerSum.value = 0
+    nodeSum.value = 0
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  fetchData()
+})
 </script>
 <style scoped>
-.partner-node-collect{
-    display: -webkit-box;
-    display: -ms-flexbox;
-    display: flex;
-    -webkit-box-orient: vertical;
-    -webkit-box-direction: normal;
-    -ms-flex-direction: column;
-    flex-direction: column;
-    height: calc(40vh - 48px);
-    min-height: 353px;
-    background: #fff;
-    border-radius: 20px
+.loading-container {
+  width: 100%;
+  height: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #999;
+  font-size: 16px;
+}
+
+.partner-node-collect {
+  display: flex;
+  flex-direction: column;
+  height: calc(40vh - 48px);
+  min-height: 353px;
+  background: #fff;
+  border-radius: 20px
 }
 
 .partner-node-collect .body{

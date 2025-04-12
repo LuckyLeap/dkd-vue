@@ -9,7 +9,7 @@
       <div class="stats">
         <div class="item">
           <div class="num color3 text-shadow2">
-            {{ orderCountNum }}
+            {{ totalOrderCount }}
           </div>
           <div class="text color4">订单量（个）</div>
         </div>
@@ -18,13 +18,13 @@
         <div class="item">
           <div class="num color3 text-shadow2">
             {{
-              orderAmountNum > 10000
-                ? (orderAmountNum / 10000).toFixed(2)
-                : orderAmountNum
+              totalMoney > 10000
+                ? (totalMoney / 10000).toFixed(2)
+                : totalMoney
             }}
           </div>
           <div class="text color4">
-            销售额（{{ orderAmountNum > 10000 ? '万元' : '元' }}）
+            销售额（{{ totalMoney > 10000 ? '万元' : '元' }}）
           </div>
         </div>
       </div>
@@ -32,20 +32,54 @@
   </div>
 </template>
 <script setup>
+import { onMounted, ref } from "vue";
+import { getOrderCollectDto } from "@/api/manage/orderCollect";
 import dayjs from 'dayjs';
 // 定义变量
-const repair = ref(false);
-const orderCountNum = ref(7358);
-const orderAmountNum = ref(7351);
-const start = dayjs().startOf('month').format('YYYY.MM.DD');
-const end = dayjs().endOf('day').format('YYYY.MM.DD');
-// 定义方法
-const orderCount = () => {
-  const month = {
-    start: dayjs().startOf('month').format('YYYY-MM-DD HH:mm:ss'),
-    end: dayjs().endOf('day').format('YYYY-MM-DD HH:mm:ss'),
-  };
-};
+const start = dayjs().startOf('month').format('YYYY-MM-DD');
+const end = dayjs().endOf('day').format('YYYY-MM-DD');
+
+const data = reactive({
+  queryParams: {
+    pageNum: 1,
+    pageSize: 10,
+    partnerId: null,
+    startDate: start,
+    endDate: end,
+  }
+});
+const { queryParams } = toRefs(data);
+
+const loading = ref(true)
+const totalOrderCount = ref(0)
+const totalMoney = ref(0)
+
+/** 统计账单详情 */
+async function getDataDetail() {
+  loading.value = true;
+  try {
+    await getOrderCollectDto({
+      ...queryParams.value,
+      startDate: queryParams.value.startDate,
+      endDate: queryParams.value.endDate
+    }).then(response => {
+      if (response && response.data) {
+        totalMoney.value = response.data.totalMoney || 0; // 使用 .value 更新 ref 数据
+        totalOrderCount.value = response.data.totalOrderCount || 0;
+      } else {
+        console.error("接口返回数据异常:", response);
+      }
+    });
+  } catch (error) {
+    console.error("获取数据失败:", error);
+  } finally {
+    loading.value = false;
+  }
+}
+
+onMounted(() => {
+  getDataDetail()
+})
 </script>
 <style lang="scss" scoped>
 .home-sku-sale-stats {
@@ -67,7 +101,7 @@ const orderCount = () => {
       justify-content: center;
 
       .item {
-        display: inline-flex; // 关键点
+        display: inline-flex;
         flex-direction: column;
 
         .num {
@@ -117,15 +151,4 @@ const orderCount = () => {
 
   }
 }
-
-// .bgc1 {
-//   background: #E9F3FF;
-//   background-image: url('~@/assets/home/circle.png'), url('~@/assets/home/task.png');
-//   background-repeat: no-repeat, no-repeat;
-//   background-position: 0 0, calc(100% - 12px) 100%;
-// }
-
-// .bgc2 {
-//   background: #FBEFE8 url('~@/assets/home/sale.png') no-repeat calc(100% - 12px) 100%;
-// }
 </style>

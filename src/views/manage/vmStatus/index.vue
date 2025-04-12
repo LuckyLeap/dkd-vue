@@ -211,7 +211,7 @@ function processSalesData(channels) {
 
   salesData.value = Array.from(salesMap.values()).sort((a, b) => b.sales - a.sales);
 
-  // 修改为取销量最低的2个商品
+  // 取销量最低的2个商品
   const sortedBySales = [...salesData.value].sort((a, b) => a.sales - b.sales);
   const lowestTwo = sortedBySales.slice(0, 2);
   lowSalesSkus.value = new Set(lowestTwo.map(item => item.skuId));

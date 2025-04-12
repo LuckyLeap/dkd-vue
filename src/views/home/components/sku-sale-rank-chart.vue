@@ -1,100 +1,114 @@
 <template>
   <div class="box bgc3 sku-sale-rank">
-    <!-- TODO: 分辨大怎么展示问UI -->
     <div class="header">
       <div class="title">
         商品热榜<span class="sub-title">{{ start }} ~ {{ end }}</span>
       </div>
     </div>
     <div class="body">
-      <el-row v-for="(item, index) in skuSaleRank" :key="index">
-        <el-col :span="5">
-          <div :class="'top top' + (index + 1)">
-            {{ index + 1 }}
-          </div>
-        </el-col>
-        <el-col :span="13">
-          <div class="sku-name" :title="item.skuName">
-            {{ item.skuName }}
-          </div>
-        </el-col>
-        <el-col :span="6">
-          <div class="count">{{ item.count }}单</div>
-        </el-col>
-      </el-row>
+      <!-- 加载状态 -->
+      <div v-if="loading" class="loading-container">加载中...</div>
+      
+      <!-- 数据展示 -->
+      <template v-else>
+        <!-- 数据为空提示 -->
+        <div v-if="skuSaleRank.length === 0" class="empty-data">
+          暂无销售数据
+        </div>
+        
+        <!-- 数据列表 -->
+        <el-row v-for="(item, index) in skuSaleRank" :key="index">
+          <el-col :span="5">
+            <div :class="'top top' + (index + 1)">
+              {{ index + 1 }}
+            </div>
+          </el-col>
+          <el-col :span="13">
+            <div class="sku-name" :title="item.skuName">
+              {{ item.skuName }}
+            </div>
+          </el-col>
+          <el-col :span="6">
+            <div class="count">{{ item.count }}单</div>
+          </el-col>
+        </el-row>
+      </template>
     </div>
   </div>
 </template>
+
 <script setup>
-import { onMounted } from 'vue';
-import dayjs from 'dayjs';
-// 定义变量
-const skuSaleRank = ref([
-    {
-        "skuId": "0",
-        "skuName": "茉莉花茶",
-        "count": 820,
-        "amount": 0
-    },
-    {
-        "skuId": "0",
-        "skuName": "星巴克",
-        "count": 762,
-        "amount": 0
-    },
-    {
-        "skuId": "0",
-        "skuName": "可口可乐",
-        "count": 749,
-        "amount": 0
-    },
-    {
-        "skuId": "0",
-        "skuName": "怡宝",
-        "count": 742,
-        "amount": 0
-    },
-    {
-        "skuId": "0",
-        "skuName": "100橙汁自然纯",
-        "count": 718,
-        "amount": 0
-    },
-    {
-        "skuId": "0",
-        "skuName": "青梅绿茶",
-        "count": 714,
-        "amount": 0
-    },
-    {
-        "skuId": "0",
-        "skuName": "统一阿萨姆奶茶",
-        "count": 700,
-        "amount": 0
-    },
-    {
-        "skuId": "0",
-        "skuName": "康师傅冰红茶",
-        "count": 673,
-        "amount": 0
-    },
-    {
-        "skuId": "0",
-        "skuName": "泡面1",
-        "count": 422,
-        "amount": 0
-    },
-    {
-        "skuId": "0",
-        "skuName": "苹果手机",
-        "count": 348,
-        "amount": 0
-    }
-])
-const start = dayjs().startOf('month').format('YYYY.MM.DD');
-const end = dayjs().endOf('day').format('YYYY.MM.DD');
+import { ref, onMounted } from 'vue'
+import dayjs from 'dayjs'
+import { getSalesTop10 } from '@/api/manage/report'
+
+// 响应式数据
+const skuSaleRank = ref([])
+const loading = ref(true)
+const start = ref('')
+const end = ref('')
+
+// 获取数据
+const fetchData = async () => {
+  try {
+    loading.value = true
+    // 设置日期范围（最近30天）
+    const beginDate = dayjs().subtract(30, 'day').format('YYYY-MM-DD')
+    const endDate = dayjs().format('YYYY-MM-DD')
+    
+    // 调用API
+    const { data } = await getSalesTop10({ 
+      begin: beginDate,
+      end: endDate
+    })
+
+    // 转换数据格式
+    const names = data.nameList?.split(',') || []
+    const counts = data.numberList?.split(',') || []
+    
+    // 合并为对象数组
+    skuSaleRank.value = names.map((name, index) => ({
+      skuName: name.trim(),
+      count: parseInt(counts[index] || 0)
+    })).slice(0, 10) // 确保最多10条
+
+    // 设置显示日期
+    start.value = dayjs(beginDate).format('YYYY.MM.DD')
+    end.value = dayjs(endDate).format('YYYY.MM.DD')
+    
+  } catch (error) {
+    console.error('获取销量TOP10失败:', error)
+    skuSaleRank.value = [] // 清空数据
+  } finally {
+    loading.value = false
+  }
+}
+
+// 生命周期钩子
+onMounted(() => {
+  fetchData()
+})
 </script>
+
 <style lang="scss" scoped>
+.loading-container {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #999;
+  font-size: 14px;
+}
+
+.empty-data {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ccc;
+  font-size: 16px;
+}
+
 @import '@/assets/styles/variables.module.scss';
 
 .sku-sale-rank {
@@ -121,7 +135,7 @@ const end = dayjs().endOf('day').format('YYYY.MM.DD');
       text-align: center;
       font-size: 12px;
       font-weight: normal;
-      color: #E9B499;
+      color: $--color-text-primary;
       line-height: 14px;
     }
 

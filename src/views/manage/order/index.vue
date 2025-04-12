@@ -35,9 +35,9 @@
           <span v-else>-</span>
         </template>
       </el-table-column>
-      <el-table-column label="订单金额" align="center" prop="amount">
+      <el-table-column label="订单金额" align="center" prop="price">
         <template #default="scope">
-          ¥{{ (scope.row && scope.row.amount ? scope.row.amount : 0).toFixed(2) }}
+          ¥{{ (scope.row && (scope.row.price * scope.row.amount) ? (scope.row.price * scope.row.amount) : 0).toFixed(2) }}
         </template>
       </el-table-column>
       <el-table-column label="订单时间" align="center" prop="createTime" width="180">
@@ -81,8 +81,8 @@
         <!-- 金额与状态 -->
         <el-row :gutter="20">
           <el-col :span="12">
-            <el-form-item label="订单金额：" prop="amount">
-              <span>¥{{ (form.amount || 0).toFixed(2) }}</span>
+            <el-form-item label="订单金额：" prop="price">
+              <span>¥{{ (form.amount * form.price || 0).toFixed(2) }}</span>
             </el-form-item>
           </el-col>
           <el-col :span="12">
@@ -190,6 +190,7 @@ const form = ref({
   orderNo: '',
   skuName: '',
   amount: 0,
+  price: 0,
   status: '',
   payStatus: '',
   payType: '',
@@ -235,6 +236,7 @@ function reset() {
     orderNo: '',
     skuName: '',
     amount: 0,
+    price: 0,
     status: '',
     payStatus: '',
     payType: '',

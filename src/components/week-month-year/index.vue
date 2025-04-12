@@ -11,7 +11,6 @@
   </div>
 </template>
 <script setup>
-import { onMounted } from 'vue';
 // 定义变量
 const groupList = ref([
   { label: '周', value: 'week' },

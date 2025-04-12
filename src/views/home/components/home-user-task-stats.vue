@@ -5,11 +5,11 @@
         工单统计<span class="sub-title">{{ start }} ~ {{ end }}</span>
       </div>
     </div>
-    <div v-if="userTaskStats.length" class="body">
+    <div class="body">
       <div class="stats">
         <div class="item">
           <div class="num color1 text-shadow1">
-            {{ userTaskStats[0].total + userTaskStats[1].total }}
+            {{ totalSum }}
           </div>
           <div class="text color2">工单总数（个）</div>
         </div>
@@ -17,9 +17,7 @@
       <div class="stats">
         <div class="item">
           <div class="num color1 text-shadow1">
-            {{
-              userTaskStats[0].completedTotal + userTaskStats[1].completedTotal
-            }}
+            {{ totalFinish }}
           </div>
           <div class="text color2">完成工单（个）</div>
         </div>
@@ -27,9 +25,7 @@
       <div class="stats">
         <div class="item">
           <div class="num color1 text-shadow1">
-            {{
-              userTaskStats[0].progressTotal + userTaskStats[1].progressTotal
-            }}
+            {{ totalProgress }}
           </div>
           <div class="text color2">进行工单（个）</div>
         </div>
@@ -37,7 +33,7 @@
       <div class="stats">
         <div class="item">
           <div class="num color1 text-shadow1">
-            {{ userTaskStats[0].cancelTotal + userTaskStats[1].cancelTotal }}
+            {{ totalCancel }}
           </div>
           <div class="text color2">取消工单（个）</div>
         </div>
@@ -46,37 +42,71 @@
   </div>
 </template>
 <script setup>
+import { ref, onMounted } from 'vue'
+import { listCollect } from "@/api/manage/collect"
+import { listEmp } from "@/api/manage/emp"
 import dayjs from 'dayjs';
-// 定义变量
-const repair = ref(false);
-const orderCountNum = ref(0);
-const orderAmountNum = ref(0);
+
 //获取 当前日期所在月份的第一天 和 所在天的最后一时刻
 const start = dayjs().startOf('month').format('YYYY.MM.DD');
 const end = dayjs().endOf('day').format('YYYY.MM.DD');
-const userTaskStats = ref([
-  {
-    total: 6,
-    completedTotal: 4,
-    cancelTotal: 1,
-    progressTotal: 1,
-    workerCount: 16,
-    repair: false,
-    date: null,
-  },
-  {
-    total: 6,
-    completedTotal: 4,
-    cancelTotal: 1,
-    progressTotal:1,
-    workerCount: 12,
-    repair: true,
-    date: null,
-  },
-]);
+
+const loading = ref(true)
+const collectList = ref([])
+const totalFinish = ref(0)
+const totalProgress = ref(0)
+const totalCancel = ref(0)
+const totalSum = ref(0)
+
+/** 获取统计列表 */
+async function getList() {
+  loading.value = true;
+  try {
+    // 1. 获取所有用户信息
+    const empRes = await listEmp({
+      pageSize: 1000
+    });
+    
+    if (empRes.rows.length === 0) {
+      collectList.value = [];
+      return;
+    }
+
+    // 2. 构建用户ID到用户信息的映射表
+    const empMap = new Map(empRes.rows.map(e => [e.id, e]));
+    const userIds = [...empMap.keys()];
+
+    // 3. 获取这些用户的统计数据
+    const collectRes = await listCollect({
+      userIds: userIds.join(','),
+      pageSize: 1000
+    });
+
+    // 4. 计算统计总数
+    totalFinish.value = 0;
+    totalProgress.value = 0;
+    totalCancel.value = 0;
+    
+    collectRes.rows.forEach(item => {
+      totalFinish.value += item.finishCountY || 0;
+      totalProgress.value += item.progressCountY || 0;
+      totalCancel.value += item.cancelCountY || 0;
+    });
+    
+    totalSum.value = totalFinish.value + totalProgress.value + totalCancel.value;
+    
+  } catch (error) {
+    console.error("获取数据失败:", error);
+  } finally {
+    loading.value = false;
+  }
+}
+
+onMounted(() => {
+  getList()
+})
 </script>
 <style lang="scss" scoped>
-// TODO: 首页、人效统计、对账统计样式抽出组件
 .home-user-task-stats {
   display: flex;
   flex-direction: column;
